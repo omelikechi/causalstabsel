@@ -1,4 +1,4 @@
-# Causal IPSS
+# Causal stability selection
 
 import time
 
@@ -6,15 +6,35 @@ from ipss.helpers import return_null_result
 from ipss.processing import postprocess_ipss, preprocess_ipss
 from joblib import Parallel, delayed
 import numpy as np
+from sklearn.kernel_approximation import RBFSampler
 
 from .cate_estimators import *
 
 #----------------------------------------------------------------
-# Causal IPSS
+# Causal stability selection
 #----------------------------------------------------------------
-def causalstabsel(X, y, treatment, cate_estimator='xlearner_gb', selector='gb', selector_args=None, preselect=True, 
-		preselector_args=None, target_fp=None, target_fdr=None, B=200, n_alphas=None, ipss_function='h3', cutoff=0.05, 
-		delta=None, standardize_X=None, center_y=None, propensity_estimator=None, n_jobs=1):
+def causalstabsel(
+	# data
+	X, y, treatment, 
+	# base selector for ipss
+	selector='gb', selector_args=None, 
+	# cate estimation method
+	cate_estimator='xlearner_gb', cate_args=None,
+	# smooth cate
+	smooth_cate=None, smoother=None, smoother_args=None,
+	# propensity estimation
+	propensity_estimator=None, 
+	# preselection
+	preselect=True, preselector_args=None, 
+	# nominal false discovery values (optional)
+	target_fp=None, target_fdr=None,
+	# additional ipss parameters 
+	B=200, n_alphas=None, ipss_function='h3', cutoff=0.05, delta=None, 
+	# standardize data
+	standardize_X=None, center_y=None, 
+	# parallel processing
+	n_jobs=1
+	):
 
 	# start timer
 	start = time.time()
@@ -33,9 +53,23 @@ def causalstabsel(X, y, treatment, cate_estimator='xlearner_gb', selector='gb', 
 
 	n, p = X.shape
 
+	# default smoother settings
+	if smooth_cate is None:
+		# no smoothing if linear, smoothing otherwise
+		if selector in ['l1', 'adaptive_lasso']:
+			smooth_cate = False
+		else:
+			smooth_cate = True
+			# default smoother
+			if smoother is None:
+				smoother = xgb.XGBRegressor
+			if smoother_args is None:
+				smoother_args = dict(n_estimators=20, max_depth=3)
+
 	# estimate selection probabilities
 	results = Parallel(n_jobs=n_jobs)(
-		delayed(causal_selection)(X, y, treatment, cate_estimator, propensity_estimator, alphas, selector_function, **selector_args)
+		delayed(causal_selection)(X, y, treatment, cate_estimator, propensity_estimator, alphas, 
+			selector_function, selector_args, cate_args, smooth_cate, smoother, smoother_args)
 		for _ in range(B)
 	)
 
@@ -59,17 +93,18 @@ def causalstabsel(X, y, treatment, cate_estimator='xlearner_gb', selector='gb', 
 
 	return ipss_output
 
-# subsampler for estimating selection probabilities (causal inference)
-def causal_selection(X, y, treatment, cate_estimator, propensity_estimator, alphas, selector_function, **kwargs):
+# subsampler for estimating selection probabilities
+def causal_selection(X, y, treatment,cate_estimator, propensity_estimator, alphas, selector_function, selector_args,
+	cate_args, smooth_cate, smoother, smoother_args):
 
 	cate_estimators = {
-		'causal_forest':causal_forest,
-		'tlearner_gb':tlearner_gb,
-		'tlearner_rf':tlearner_rf,
-		'tlearner_ridge':tlearner_ridge,
-		'xlearner_gb':xlearner_gb,
-		'xlearner_rf':xlearner_rf,
-		'xlearner_ridge':xlearner_ridge
+		'causal_forest': causal_forest,
+		'tlearner_gb': tlearner_gb,
+		'tlearner_rf': tlearner_rf,
+		'tlearner_ridge': tlearner_ridge,
+		'xlearner_gb': xlearner_gb,
+		'xlearner_rf': xlearner_rf,
+		'xlearner_ridge': xlearner_ridge
 	}
 	if isinstance(cate_estimator, str):
 		cate_estimator = cate_estimators[cate_estimator]
@@ -78,9 +113,9 @@ def causal_selection(X, y, treatment, cate_estimator, propensity_estimator, alph
 	treated_idx = np.where(treatment == 1)[0]
 	control_idx = np.where(treatment == 0)[0]
 
-	# stratify samples according to treatment
 	np.random.shuffle(treated_idx)
 	np.random.shuffle(control_idx)
+
 	n_treat_split = len(treated_idx) // 2
 	n_control_split = len(control_idx) // 2
 
@@ -94,22 +129,31 @@ def causal_selection(X, y, treatment, cate_estimator, propensity_estimator, alph
 		indicators = np.empty((len(alphas), 2, p))
 
 	for half, (train_idx, test_idx) in enumerate([(halves[0], halves[1]), (halves[1], halves[0])]):
-		tau_hat = cate_estimator(X[train_idx, :], y[train_idx], treatment[train_idx], X[test_idx, :], propensity_estimator)
 
-		if alphas is None:
-			indicators[half, :] = np.array(selector_function(X[test_idx, :], tau_hat, **kwargs))
+		# smooth estimate
+		if smooth_cate:
+			# calculate raw CATE on training split
+			tau_train = cate_estimator(
+				X[train_idx], y[train_idx], treatment[train_idx],
+				X[train_idx], propensity_estimator, cate_args
+			)
+			# fit meta-learner on (X_train, tau_train)
+			meta = smoother(**smoother_args)
+			meta.fit(X[train_idx], tau_train)
+			# smoothed CATE on held-out data
+			tau_hat = meta.predict(X[test_idx])
+
+		# no smoothing (standard cross-fit)
 		else:
-			indicators[:, half, :] = np.array(selector_function(X[test_idx, :], tau_hat, alphas, **kwargs))
+			tau_hat = cate_estimator(X[train_idx], y[train_idx], treatment[train_idx], X[test_idx], 
+				propensity_estimator, cate_args)
+
+		# selection
+		if alphas is None:
+			indicators[half, :] = selector_function(X[test_idx], tau_hat, **selector_args)
+		else:
+			indicators[:, half, :] = selector_function(X[test_idx], tau_hat, alphas, **selector_args)
 
 	return indicators
-
-
-
-
-
-
-
-
-
 
 
