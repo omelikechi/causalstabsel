@@ -110,8 +110,48 @@ def estimate_propensity_scores(x_train, t_train, x_test, propensity_estimator=No
 		return propensity_estimator(x_train, t_train, x_test)
 	raise ValueError('Unknown method for estimating propensity.')
 
+def drlearner_ridge(x_train, y_train, t_train, x_test, propensity_estimator=None, cate_args=None):
+    """DR-learner with Ridge regression: regress AIPW pseudo-outcomes on X"""
+    if propensity_estimator is None or propensity_estimator == 'logistic_regression':
+        e_model = LogisticRegression(max_iter=1000).fit(x_train, t_train)
+        e_hat = np.clip(e_model.predict_proba(x_train)[:, 1], 0.05, 0.95)
+    else:
+        e_hat = estimate_propensity_scores(x_train, t_train, x_train, propensity_estimator)
+        e_hat = np.clip(e_hat, 0.05, 0.95)
+
+    mu1_model = Ridge().fit(x_train[t_train == 1], y_train[t_train == 1])
+    mu0_model = Ridge().fit(x_train[t_train == 0], y_train[t_train == 0])
+    mu1_hat = mu1_model.predict(x_train)
+    mu0_hat = mu0_model.predict(x_train)
+
+    gamma = (mu1_hat - mu0_hat +
+             t_train * (y_train - mu1_hat) / e_hat -
+             (1 - t_train) * (y_train - mu0_hat) / (1 - e_hat))
+
+    tau_model = Ridge().fit(x_train, gamma)
+    return tau_model.predict(x_test)
 
 
-
-
-	
+def drlearner_gb(x_train, y_train, t_train, x_test, propensity_estimator=None, cate_args=None):
+    """DR-learner with Gradient Boosting"""
+    if cate_args is None:
+        cate_args = {'max_depth': 3, 'n_estimators': 50}
+    
+    if propensity_estimator is None or propensity_estimator == 'logistic_regression':
+        e_model = LogisticRegression(max_iter=1000).fit(x_train, t_train)
+        e_hat = np.clip(e_model.predict_proba(x_train)[:, 1], 0.05, 0.95)
+    else:
+        e_hat = estimate_propensity_scores(x_train, t_train, x_train, propensity_estimator)
+        e_hat = np.clip(e_hat, 0.05, 0.95)
+    
+    mu1_model = xgb.XGBRegressor(**cate_args).fit(x_train[t_train == 1], y_train[t_train == 1])
+    mu0_model = xgb.XGBRegressor(**cate_args).fit(x_train[t_train == 0], y_train[t_train == 0])
+    mu1_hat = mu1_model.predict(x_train)
+    mu0_hat = mu0_model.predict(x_train)
+    
+    gamma = (mu1_hat - mu0_hat + 
+             t_train * (y_train - mu1_hat) / e_hat - 
+             (1 - t_train) * (y_train - mu0_hat) / (1 - e_hat))
+    
+    tau_model = xgb.XGBRegressor(**cate_args).fit(x_train, gamma)
+    return tau_model.predict(x_test)

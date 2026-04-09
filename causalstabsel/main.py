@@ -39,14 +39,29 @@ def causalstabsel(
 	# start timer
 	start = time.time()
 
+	# Force regression selectors: CausalStabSel applies the selector to continuous
+	# CATE estimates (tau_hat), not to y directly. When y is binary, ipss's
+	# check_response_type would auto-select classifiers, causing errors.
+	# Adding tiny noise to y ensures ipss treats it as continuous without
+	# affecting CATE estimation.
+	y_for_prep = y.copy() if isinstance(y, np.ndarray) else np.array(y, dtype=float)
+	if len(np.unique(y_for_prep)) == 2:
+		y_for_prep = y_for_prep + np.random.normal(0, 1e-10, len(y_for_prep))
+
 	# prepare ipss arguments and data prior to estimating selection probabilities
-	prep = preprocess_ipss(X, y, selector, selector_args, preselect, preselector_args, 
+	prep = preprocess_ipss(X, y_for_prep, selector, selector_args, preselect, preselector_args,
 		B, n_alphas, ipss_function, delta, standardize_X, center_y)
 
 	if prep is None:
 		return return_null_result(X.shape[1])
-	
+
+	# Keep original y for CATE estimation (binary y should remain binary)
+	y_original = y.copy() if isinstance(y, np.ndarray) else np.array(y, dtype=float)
 	X, y = prep['X'], prep['y']
+	# If y was perturbed for ipss preprocessing, restore original for CATE
+	if len(np.unique(y_original)) == 2:
+		# X may have been preselected/standardized, but y should be original
+		y = y_original
 	selector_function, selector_args = prep['selector_function'], prep['selector_args']
 	alphas, n_alphas, B = prep['alphas'], prep['n_alphas'], prep['B']
 	p_full, preselect_indices = prep['p_full'], prep['preselect_indices']
@@ -97,14 +112,20 @@ def causalstabsel(
 def causal_selection(X, y, treatment,cate_estimator, propensity_estimator, alphas, selector_function, selector_args,
 	cate_args, smooth_cate, smoother, smoother_args):
 
+	# Suppress warnings in worker processes (e.g., econml causal forest OOB warnings)
+	import warnings
+	warnings.filterwarnings('ignore')
+
 	cate_estimators = {
-		'causal_forest': causal_forest,
-		'tlearner_gb': tlearner_gb,
-		'tlearner_rf': tlearner_rf,
-		'tlearner_ridge': tlearner_ridge,
-		'xlearner_gb': xlearner_gb,
-		'xlearner_rf': xlearner_rf,
-		'xlearner_ridge': xlearner_ridge
+    	'causal_forest': causal_forest,
+    	'tlearner_gb': tlearner_gb,
+    	'tlearner_rf': tlearner_rf,
+    	'tlearner_ridge': tlearner_ridge,
+    	'xlearner_gb': xlearner_gb,
+    	'xlearner_rf': xlearner_rf,
+    	'xlearner_ridge': xlearner_ridge,
+    	'drlearner_ridge': drlearner_ridge,  # ADD
+    	'drlearner_gb': drlearner_gb,        # ADD
 	}
 	if isinstance(cate_estimator, str):
 		cate_estimator = cate_estimators[cate_estimator]
