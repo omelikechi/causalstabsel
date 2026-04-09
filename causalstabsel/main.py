@@ -6,7 +6,6 @@ from ipss.helpers import return_null_result
 from ipss.processing import postprocess_ipss, preprocess_ipss
 from joblib import Parallel, delayed
 import numpy as np
-from sklearn.kernel_approximation import RBFSampler
 import xgboost as xgb
 
 from .cate_estimators import cate_estimators
@@ -173,62 +172,5 @@ def causal_selection(
 			)
 
 	return indicators
-
-
-
-
-
-
-
-
-
-
-
-
-
-# def causal_selection(X, y, treatment, cate_estimator, propensity_estimator, alphas, selector_function, selector_args,
-# 	subsample_size, cate_args, smooth_cate, smoother, smoother_args):
-
-# 	n, p = X.shape
-
-# 	# draw two disjoint subsamples
-# 	indices = np.random.permutation(n)
-# 	half1 = indices[:subsample_size]
-# 	half2 = indices[subsample_size:2*subsample_size]
-# 	halves = [half1, half2]
-
-# 	if alphas is None:
-# 		indicators = np.empty((2, p))
-# 	else:
-# 		indicators = np.empty((len(alphas), 2, p))
-
-# 	for half, test_idx in enumerate(halves):
-
-# 		# out-of-bag training data
-# 		train_idx = np.setdiff1d(indices, test_idx, assume_unique=True)
-
-# 		# smooth estimate
-# 		if smooth_cate:
-# 			# calculate raw CATE on training split
-# 			tau_train = cate_estimator(X[train_idx], y[train_idx], treatment[train_idx],
-# 				X[train_idx], propensity_estimator, cate_args)
-# 			# fit meta-learner on (X_train, tau_train)
-# 			meta = smoother(**smoother_args)
-# 			meta.fit(X[train_idx], tau_train)
-# 			# smoothed CATE on held-out data
-# 			tau_hat = meta.predict(X[test_idx])
-
-# 		# no smoothing (standard cross-fit)
-# 		else:
-# 			tau_hat = cate_estimator(X[train_idx], y[train_idx], treatment[train_idx],
-# 				X[test_idx], propensity_estimator, cate_args)
-
-# 		# selection
-# 		if alphas is None:
-# 			indicators[half, :] = selector_function(X[test_idx], tau_hat, **selector_args)
-# 		else:
-# 			indicators[:, half, :] = selector_function(X[test_idx], tau_hat, alphas, **selector_args)
-
-# 	return indicators
 
 
