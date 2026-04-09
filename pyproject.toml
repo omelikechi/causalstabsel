@@ -31,6 +31,4 @@ keywords = ["causal inference", "feature selection", "stability selection", "mac
 [project.urls]
 Homepage = "https://github.com/omelikechi/causalstabsel"
 
-[tool.setuptools.packages.find]
-where = ["."]
-include = ["causalstabsel*"]
+

@@ -110,6 +110,19 @@ def estimate_propensity_scores(x_train, t_train, x_test, propensity_estimator=No
 		return propensity_estimator(x_train, t_train, x_test)
 	raise ValueError('Unknown method for estimating propensity.')
 
+#----------------------------------------------------------------
+# All methods
+#----------------------------------------------------------------
+cate_estimators = {
+	'causal_forest': causal_forest,
+	'tlearner_gb': tlearner_gb,
+	'tlearner_rf': tlearner_rf,
+	'tlearner_ridge': tlearner_ridge,
+	'xlearner_gb': xlearner_gb,
+	'xlearner_rf': xlearner_rf,
+	'xlearner_ridge': xlearner_ridge
+}
+
 
 
 
