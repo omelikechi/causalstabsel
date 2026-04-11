@@ -1,6 +1,5 @@
 # Functions for estimating conditional average treatment effects (CATEs)
 
-from econml.dml import CausalForestDML
 import numpy as np
 from sklearn.ensemble import RandomForestClassifier, RandomForestRegressor
 from sklearn.linear_model import LogisticRegression, Ridge
@@ -10,15 +9,41 @@ import xgboost as xgb
 # Conditional average treatment effect (CATE) estimators
 #----------------------------------------------------------------
 def causal_forest(x_train, y_train, t_train, x_test, propensity_estimator=None, cate_args=None):
+	from econml.dml import CausalForestDML
 	if cate_args is None:
 		cate_args = {'model_y':'linear', 'model_t':'linear', 'max_depth':3, 'n_estimators':24}
 	cf = CausalForestDML(discrete_treatment=True, **cate_args)
 	cf.fit(y_train, t_train, X=x_train)
 	return cf.effect(x_test)
 
+def drlearner_ridge(x_train, y_train, t_train, x_test, propensity_estimator=None, cate_args=None):
+	ps_estimator = propensity_estimator if propensity_estimator is not None else 'logistic_regression'
+	e_hat = np.clip(estimate_propensity_scores(x_train, t_train, x_train, ps_estimator), 0.05, 0.95)
+	mu1_model = Ridge().fit(x_train[t_train == 1], y_train[t_train == 1])
+	mu0_model = Ridge().fit(x_train[t_train == 0], y_train[t_train == 0])
+	mu1_hat = mu1_model.predict(x_train)
+	mu0_hat = mu0_model.predict(x_train)
+	gamma = (mu1_hat - mu0_hat
+		+ t_train * (y_train - mu1_hat) / e_hat
+		- (1 - t_train) * (y_train - mu0_hat) / (1 - e_hat))
+	return Ridge().fit(x_train, gamma).predict(x_test)
+
+def drlearner_gb(x_train, y_train, t_train, x_test, propensity_estimator=None, cate_args=None):
+	if cate_args is None:
+		cate_args = {'max_depth':3, 'n_estimators':50}
+	ps_estimator = propensity_estimator if propensity_estimator is not None else 'logistic_regression'
+	e_hat = np.clip(estimate_propensity_scores(x_train, t_train, x_train, ps_estimator), 0.05, 0.95)
+	mu1_model = xgb.XGBRegressor(**cate_args).fit(x_train[t_train == 1], y_train[t_train == 1])
+	mu0_model = xgb.XGBRegressor(**cate_args).fit(x_train[t_train == 0], y_train[t_train == 0])
+	mu1_hat = mu1_model.predict(x_train)
+	mu0_hat = mu0_model.predict(x_train)
+	gamma = (mu1_hat - mu0_hat
+		+ t_train * (y_train - mu1_hat) / e_hat
+		- (1 - t_train) * (y_train - mu0_hat) / (1 - e_hat))
+	return xgb.XGBRegressor(**cate_args).fit(x_train, gamma).predict(x_test)
+
 def tlearner_gb(x_train, y_train, t_train, x_test, propensity_estimator=None, cate_args=None):
 	if cate_args is None:
-		# cate_args = {'max_depth':1, 'colsample_bynode':1/3, 'n_estimators':50}
 		cate_args = {}
 	X_treat, y_treat = x_train[t_train == 1], y_train[t_train == 1]
 	X_ctrl, y_ctrl = x_train[t_train == 0], y_train[t_train == 0]
@@ -115,6 +140,8 @@ def estimate_propensity_scores(x_train, t_train, x_test, propensity_estimator=No
 #----------------------------------------------------------------
 cate_estimators = {
 	'causal_forest': causal_forest,
+	'drlearner_gb': drlearner_gb,
+	'drlearner_ridge': drlearner_ridge,
 	'tlearner_gb': tlearner_gb,
 	'tlearner_rf': tlearner_rf,
 	'tlearner_ridge': tlearner_ridge,

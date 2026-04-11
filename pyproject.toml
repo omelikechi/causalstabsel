@@ -14,7 +14,7 @@ authors = [
 ]
 requires-python = ">=3.8"
 dependencies = [
-    "ipss>=1.0.0",
+    "ipss>=1.1.11",
     "joblib",
     "numpy",
     "scikit-learn",

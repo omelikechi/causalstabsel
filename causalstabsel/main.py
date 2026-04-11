@@ -1,6 +1,7 @@
 # Causal stability selection
 
 import time
+import warnings
 
 from ipss.helpers import return_null_result
 from ipss.processing import postprocess_ipss, preprocess_ipss
@@ -42,11 +43,11 @@ def causalstabsel(
 	start = time.time()
 
 	# prepare ipss arguments and data prior to estimating selection probabilities
-	prep = preprocess_ipss(X, y, selector, selector_args, preselect, preselector_args, 
-		B, n_alphas, ipss_function, delta, standardize_X, center_y)
+	prep = preprocess_ipss(X, y, selector, selector_args, preselect, preselector_args,
+		B, n_alphas, ipss_function, delta, standardize_X, center_y, force_regression=True)
 
 	if prep is None:
-		return return_null_result(X.shape[1])
+		return return_null_result(X.shape[1], time.time() - start)
 	
 	X, y = prep['X'], prep['y']
 	selector_function, selector_args = prep['selector_function'], prep['selector_args']
@@ -118,6 +119,8 @@ def causal_selection(
 	cate_args, smooth_cate, smoother, smoother_args,
 	treated, control
 	):
+
+	warnings.filterwarnings('ignore')
 
 	n, p = X.shape
 	indices = np.arange(n)
