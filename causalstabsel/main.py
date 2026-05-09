@@ -20,7 +20,7 @@ def causalstabsel(
 	# base selector for ipss
 	selector='gb', selector_args=None, 
 	# cate estimation method
-	cate_estimator='xlearner_gb', cate_args=None,
+	cate_estimator='drlearner_gb', cate_args=None,
 	# smooth cate
 	smooth_cate=None, smoother=None, smoother_args=None,
 	# propensity estimation
@@ -76,6 +76,8 @@ def causalstabsel(
 	# subsample size
 	if subsample_size is None or subsample_size > n // 2:
 		subsample_size = n // 2
+	elif 0 < subsample_size < 1:
+		subsample_size = int(subsample_size * n)
 
 	# stratify samples by treatment
 	treated = np.where(treatment == 1)[0]
