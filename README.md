@@ -4,7 +4,7 @@
 
 ## Associated paper
 
-- **Causal Stability Selection**  
+- **Causal stability selection**  
   [arXiv](https://arxiv.org/abs/2605.09300)
 
 ## Installation
