@@ -1,6 +1,6 @@
 # Causal Stability Selection (CausalStabSel)
 
-> Stable feature selection for heterogeneous treatment effects, with false discovery control
+> Stable effect modifier discovery with false discovery control
 
 CausalStabSel extends [integrated path stability selection (IPSS)](https://github.com/omelikechi/ipss) to causal inference: instead of selecting features associated with a response `y`, it selects features associated with the *conditional average treatment effect* (CATE), `tau(X) = E[Y(1) - Y(0) | X]`. On each subsample, a CATE estimator (DR-learner, T-learner, X-learner, or causal forest) produces pseudo-outcomes, which are then passed to IPSS's stability selection machinery to produce q-values and expected-false-positive (E(FP)) bounds for each feature.
 
