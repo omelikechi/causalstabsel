@@ -1,0 +1,16 @@
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# OS junk
+.DS_Store
+**/.DS_Store
+
+# Build artifacts
+build/
+dist/
+*.egg-info/
+
+# Work in progress / experimental
+dev/
