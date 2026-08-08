@@ -21,7 +21,13 @@ dependencies = [
     "xgboost"
 ]
 
+[project.optional-dependencies]
+causal_forest = ["econml"]
+
 classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Science/Research",
+    "Topic :: Scientific/Engineering",
     "Programming Language :: Python :: 3",
     "Operating System :: OS Independent"
 ]
