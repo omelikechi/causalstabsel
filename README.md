@@ -2,15 +2,14 @@
 
 > Stable effect modifier discovery with false discovery control
 
-CausalStabSel extends [integrated path stability selection (IPSS)](https://github.com/omelikechi/ipss) to causal inference: instead of selecting features associated with a response `y`, it selects features associated with the *conditional average treatment effect* (CATE), `tau(X) = E[Y(1) - Y(0) | X]`. On each subsample, a CATE estimator (DR-learner, T-learner, X-learner, or causal forest) produces pseudo-outcomes, which are then passed to IPSS's stability selection machinery to produce q-values and expected-false-positive (E(FP)) bounds for each feature.
+## Associated paper
+
+- **Causal Stability Selection**  
+  [arXiv](https://arxiv.org/abs/2605.09300)
 
 ## Installation
 ```
 pip install causalstabsel
-```
-The `causal_forest` CATE estimator requires [`econml`](https://github.com/py-why/EconML), which is not installed by default:
-```
-pip install causalstabsel[causal_forest]
 ```
 
 ## Usage
@@ -37,29 +36,27 @@ print(f'Selected features (target FDR = {target_fdr}): {selected_features}')
 - `selected_features`: Indices of features selected by CausalStabSel; empty list if `target_fp` and `target_fdr` are not specified (list of ints).
 - `stability_paths`: Estimated selection probabilities at each parameter (array of shape `(n_alphas, p)`).
 
-If `delta` is a list rather than a single value, `output` instead maps each `delta` to its own result dictionary of the form above.
-
 ### Selecting features
 Each feature (column of `X`) is assigned:
 - a **q-value**: the minimum false discovery rate (FDR) at which the feature is selected
 - an **efp score**: the minimum expected number of false positives (E(FP)) at which the feature is selected
 
 To select features:
-- **Control FDR** by choosing all features with `q_value ≤ target_fdr`
+- **Control FDR** by choosing all features with `q_value ≤ target_fdr`  
   _Example: Selecting features with `q_value ≤ 0.1` controls the FDR at level 0.1_
-- **Control E(FP)** by choosing all features with `efp_score ≤ target_fp`
+- **Control E(FP)** by choosing all features with `efp_score ≤ target_fp`  
   _Example: Selecting features with `efp_score ≤ 2` controls the E(FP) at level 2_
 
 ## CATE estimators
-`cate_estimator` selects the method used to estimate pseudo-outcomes on each subsample (str; default `'drlearner_gb'`):
+`cate_estimator`: method used to estimate pseudo-outcomes (str; default `'drlearner_gb'`):
 - `'drlearner_gb'`, `'drlearner_rf'`, `'drlearner_ridge'`: Doubly-robust (DR) learner, with gradient boosting (XGBoost), random forest, or ridge regression nuisance models.
 - `'tlearner_gb'`, `'tlearner_rf'`, `'tlearner_ridge'`: T-learner.
 - `'xlearner_gb'`, `'xlearner_rf'`, `'xlearner_ridge'`: X-learner.
-- `'causal_forest'`: Causal forest via [`econml`](https://github.com/py-why/EconML)'s `CausalForestDML` (requires the `causal_forest` extra, see Installation).
+- `'causal_forest'`: Causal forest via [`econml`](https://github.com/py-why/EconML)'s `CausalForestDML`. `econml` is not installed by default; install it with `pip install causalstabsel[causal_forest]`.
 
-`cate_args` passes estimator-specific keyword arguments (dict; default `None`, which resolves to each estimator's own defaults).
+`cate_args`: estimator-specific keyword arguments (dict; default `None`, which resolves to each estimator's own defaults).
 
-`propensity_estimator` selects how treatment propensities are estimated where needed (used by the DR- and X-learners; default `None`, which assumes a constant propensity of 0.5, appropriate for randomized experiments). Options:
+`propensity_estimator`: how treatment propensities are estimated (used by the DR- and X-learners; default `None`, which assumes constant propensity of 0.5). Options:
 - `'logistic_regression'`: Logistic regression (scikit-learn).
 - `'rf'`: Random forest (scikit-learn).
 - `'gb'` or `'xgb'`: Gradient boosting (XGBoost).
@@ -67,7 +64,7 @@ To select features:
 - Custom: a function `propensity_estimator(x_train, t_train, x_test) -> array of propensities for x_test`.
 
 ### Smoothing
-Cross-fit CATE estimates are noisy at the sample level, so by default CausalStabSel smooths them with a secondary regression model before running the base selector:
+Cross-fit CATE estimates are noisy at the sample level, so by default causalstabsel smooths them with a secondary regression model before running the base selector:
 - `smooth_cate`: Whether to smooth CATE pseudo-outcomes (bool; default `None`, which resolves to `False` if `selector` is `'l1'`/`'adaptive_lasso'` and `True` otherwise).
 - `smoother`: Regression model class used for smoothing when `smooth_cate=True` (default `None`, which resolves to `xgb.XGBRegressor`). Must implement `.fit(X, y)` / `.predict(X)`.
 - `smoother_args`: Arguments passed to `smoother` (dict; default `None`, which resolves to `{'n_estimators': 20, 'max_depth': 3}` for the default smoother).
