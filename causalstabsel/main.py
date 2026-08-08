@@ -26,7 +26,7 @@ def causalstabsel(
 	# propensity estimation
 	propensity_estimator=None, 
 	# preselection
-	preselect=True, preselector_args=None, 
+	preselect=True, preselector=None, preselector_args=None,
 	# nominal false discovery values (optional)
 	target_fp=None, target_fdr=None,
 	# additional ipss parameters 
@@ -43,7 +43,7 @@ def causalstabsel(
 	start = time.time()
 
 	# prepare ipss arguments and data prior to estimating selection probabilities
-	prep = preprocess_ipss(X, y, selector, selector_args, preselect, preselector_args,
+	prep = preprocess_ipss(X, y, selector, selector_args, preselect, preselector, preselector_args,
 		B, n_alphas, ipss_function, delta, standardize_X, center_y, force_regression=True)
 
 	if prep is None:
