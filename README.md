@@ -2,6 +2,8 @@
 
 > Stable effect modifier discovery with false discovery control
 
+Given features `X`, an outcome `y`, and a treatment indicator, causalstabsel selects the features that modify the treatment effect, with false discovery control.
+
 ## Associated paper
 
 - **Causal Stability Selection**  
