@@ -21,9 +21,6 @@ dependencies = [
     "xgboost"
 ]
 
-[project.optional-dependencies]
-causal_forest = ["econml"]
-
 classifiers = [
     "Development Status :: 3 - Alpha",
     "Intended Audience :: Science/Research",
@@ -33,6 +30,9 @@ classifiers = [
 ]
 
 keywords = ["causal inference", "feature selection", "stability selection", "machine learning", "IPSS"]
+
+[project.optional-dependencies]
+causal_forest = ["econml"]
 
 [project.urls]
 Homepage = "https://github.com/omelikechi/causalstabsel"
