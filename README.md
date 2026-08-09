@@ -94,3 +94,15 @@ Cross-fit CATE estimates are noisy at the sample level, so by default causalstab
 - `standardize_X`: Scale features to have mean 0, standard deviation 1 (bool; default `None`).
 - `center_y`: Center response to have mean 0 (bool; default `None`).
 - `n_jobs`: Number of jobs to run in parallel (int; default `1`).
+
+## Reference
+* Bargagli-Stoffi, F.J., Melikechi, O. 2026. Causal Stability Selection. arXiv preprint arXiv:2605.09300 </b> [<a href="https://arxiv.org/abs/2605.09300">preprint</a>]
+
+```
+@article{bargagli2026causal,
+  title={Causal Stability Selection},
+  author={Bargagli-Stoffi, Falco J and Melikechi, Omar},
+  journal={arXiv preprint arXiv:2605.09300},
+  year={2026}
+}
+```
