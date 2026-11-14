@@ -56,7 +56,7 @@ To select features:
 
 `cate_args`: estimator-specific keyword arguments (dict; default `None`, which resolves to each estimator's own defaults).
 
-`propensity_estimator`: how treatment propensities are estimated (used by the DR- and X-learners; default `None`, which assumes constant propensity of 0.5). Options:
+`propensity_estimator`: how treatment propensities are estimated (used by the DR- and X-learners; default `None`, which uses logistic regression for the DR-learners and a constant propensity of 0.5 for the X-learners). Options:
 - `'logistic_regression'`: Logistic regression (scikit-learn).
 - `'rf'`: Random forest (scikit-learn).
 - `'gb'` or `'xgb'`: Gradient boosting (XGBoost).
@@ -66,7 +66,7 @@ To select features:
 ### Smoothing
 Cross-fit CATE estimates are noisy at the sample level, so by default causalstabsel smooths them with a secondary regression model before running the base selector:
 - `smooth_cate`: Whether to smooth CATE pseudo-outcomes (bool; default `None`, which resolves to `False` if `selector` is `'l1'`/`'adaptive_lasso'` and `True` otherwise).
-- `smoother`: Regression model class used for smoothing when `smooth_cate=True` (default `None`, which resolves to `xgb.XGBRegressor`). Must implement `.fit(X, y)` / `.predict(X)`.
+- `smoother`: Regression model class used for smoothing when `smooth_cate=True` (default `None`, which resolves to XGBoost's `XGBRegressor`). Must implement `.fit(X, y)` / `.predict(X)`.
 - `smoother_args`: Arguments passed to `smoother` (dict; default `None`, which resolves to `{'n_estimators': 20, 'max_depth': 3}` for the default smoother).
 
 ## Full list of `causalstabsel` arguments
@@ -94,6 +94,7 @@ Cross-fit CATE estimates are noisy at the sample level, so by default causalstab
 - `standardize_X`: Scale features to have mean 0, standard deviation 1 (bool; default `None`).
 - `center_y`: Center response to have mean 0 (bool; default `None`).
 - `n_jobs`: Number of jobs to run in parallel (int; default `1`).
+- `random_state`: Seed for preselection, subsampling, and every model fit (int, `RandomState`, or `None`; default `None` uses numpy's global random state, so `np.random.seed` also works). Results are the same for any `n_jobs`.
 
 ## Reference
 * Bargagli-Stoffi, F.J., Melikechi, O. 2026. Causal Stability Selection. arXiv preprint arXiv:2605.09300 </b> [<a href="https://arxiv.org/abs/2605.09300">preprint</a>]

@@ -7,9 +7,9 @@ from ipss.helpers import return_null_result
 from ipss.processing import postprocess_ipss, preprocess_ipss
 from joblib import Parallel, delayed
 import numpy as np
-import xgboost as xgb
+from sklearn.utils import check_random_state
 
-from .cate_estimators import cate_estimators
+from .cate_estimators import cate_estimators, xgb_regressor
 
 #----------------------------------------------------------------
 # Causal stability selection
@@ -36,15 +36,18 @@ def causalstabsel(
 	# standardize data
 	standardize_X=None, center_y=None, 
 	# parallel processing
-	n_jobs=1
+	n_jobs=1,
+	# random seed (int, RandomState, or None); None uses numpy's global random state
+	random_state=None
 	):
 
 	# start timer
 	start = time.time()
+	rng = check_random_state(random_state)
 
 	# prepare ipss arguments and data prior to estimating selection probabilities
 	prep = preprocess_ipss(X, y, selector, selector_args, preselect, preselector, preselector_args,
-		B, n_alphas, ipss_function, delta, standardize_X, center_y, force_regression=True)
+		B, n_alphas, ipss_function, delta, standardize_X, center_y, force_regression=True, random_state=rng)
 
 	if prep is None:
 		return return_null_result(X.shape[1], time.time() - start)
@@ -56,18 +59,14 @@ def causalstabsel(
 
 	n, p = X.shape
 
-	# default smoother settings
+	# default smoother settings: no smoothing if linear, smoothing otherwise
 	if smooth_cate is None:
-		# no smoothing if linear, smoothing otherwise
-		if selector in ['l1', 'adaptive_lasso']:
-			smooth_cate = False
-		else:
-			smooth_cate = True
-			# default smoother
-			if smoother is None:
-				smoother = xgb.XGBRegressor
-			if smoother_args is None:
-				smoother_args = dict(n_estimators=20, max_depth=3)
+		smooth_cate = selector not in ['l1', 'adaptive_lasso']
+	if smooth_cate and smoother is None:
+		smoother = xgb_regressor
+		if smoother_args is None:
+			smoother_args = dict(n_estimators=20, max_depth=3)
+	smoother_args = smoother_args or {}
 
 	# cate estimator
 	if isinstance(cate_estimator, str):
@@ -83,15 +82,18 @@ def causalstabsel(
 	treated = np.where(treatment == 1)[0]
 	control = np.where(treatment == 0)[0]
 
+	# one seed per subsampling step, drawn here so that results do not depend on n_jobs
+	seeds = rng.randint(np.iinfo(np.int32).max, size=B)
+
 	# estimate selection probabilities
 	results = Parallel(n_jobs=n_jobs)( 
 		delayed(causal_selection)(
 			X, y, treatment, cate_estimator, propensity_estimator, alphas,
 			selector_function, selector_args, subsample_size,
 			cate_args, smooth_cate, smoother, smoother_args,
-			treated, control
+			treated, control, seed=seeds[b]
 		)
-		for _ in range(B)
+		for b in range(B)
 	)
 
 	results = np.array(results)
@@ -115,7 +117,20 @@ def causalstabsel(
 	return ipss_output
 
 # subsampler for estimating selection probabilities
-def causal_selection(
+def causal_selection(*args, seed=None):
+	'''Seeds numpy's global random state for one subsampling step. The subsampling and the
+	CATE, smoother, and selector fits all draw from it, and in parallel runs each worker
+	process otherwise has its own unseeded state. The caller's state is restored afterward.'''
+	if seed is None:
+		return _causal_selection(*args)
+	state = np.random.get_state()
+	np.random.seed(seed)
+	try:
+		return _causal_selection(*args)
+	finally:
+		np.random.set_state(state)
+
+def _causal_selection(
 	X, y, treatment, cate_estimator, propensity_estimator, alphas,
 	selector_function, selector_args, subsample_size,
 	cate_args, smooth_cate, smoother, smoother_args,

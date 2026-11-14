@@ -5,6 +5,15 @@ from sklearn.ensemble import RandomForestClassifier, RandomForestRegressor
 from sklearn.linear_model import LogisticRegression, Ridge
 import xgboost as xgb
 
+# XGBoost models with a new random seed for each fit (XGBoost otherwise always uses seed 0)
+def xgb_regressor(**kwargs):
+	kwargs.setdefault('random_state', np.random.randint(np.iinfo(np.int32).max))
+	return xgb.XGBRegressor(**kwargs)
+
+def xgb_classifier(**kwargs):
+	kwargs.setdefault('random_state', np.random.randint(np.iinfo(np.int32).max))
+	return xgb.XGBClassifier(**kwargs)
+
 ################################################################
 
 # Conditional average treatment effect (CATE) estimators
@@ -30,14 +39,14 @@ def drlearner_gb(x_train, y_train, t_train, x_test, propensity_estimator=None, c
 		cate_args = {'max_depth':3, 'colsample_bynode':1/3, 'n_estimators':25}
 	ps_estimator = propensity_estimator if propensity_estimator is not None else 'logistic_regression'
 	e_hat = np.clip(estimate_propensity_scores(x_train, t_train, x_train, ps_estimator), 0.05, 0.95)
-	mu1_model = xgb.XGBRegressor(**cate_args).fit(x_train[t_train == 1], y_train[t_train == 1])
-	mu0_model = xgb.XGBRegressor(**cate_args).fit(x_train[t_train == 0], y_train[t_train == 0])
+	mu1_model = xgb_regressor(**cate_args).fit(x_train[t_train == 1], y_train[t_train == 1])
+	mu0_model = xgb_regressor(**cate_args).fit(x_train[t_train == 0], y_train[t_train == 0])
 	mu1_hat = mu1_model.predict(x_train)
 	mu0_hat = mu0_model.predict(x_train)
 	gamma = (mu1_hat - mu0_hat
 		+ t_train * (y_train - mu1_hat) / e_hat
 		- (1 - t_train) * (y_train - mu0_hat) / (1 - e_hat))
-	return xgb.XGBRegressor(**cate_args).fit(x_train, gamma).predict(x_test)
+	return xgb_regressor(**cate_args).fit(x_train, gamma).predict(x_test)
 
 def drlearner_rf(x_train, y_train, t_train, x_test, propensity_estimator=None, cate_args=None):
 	if cate_args is None:
@@ -73,8 +82,8 @@ def tlearner_gb(x_train, y_train, t_train, x_test, propensity_estimator=None, ca
 		cate_args = {'max_depth':3, 'colsample_bynode':1/3, 'n_estimators':25}
 	X_treat, y_treat = x_train[t_train == 1], y_train[t_train == 1]
 	X_ctrl, y_ctrl = x_train[t_train == 0], y_train[t_train == 0]
-	mu1_model = xgb.XGBRegressor(**cate_args).fit(X_treat, y_treat)
-	mu0_model = xgb.XGBRegressor(**cate_args).fit(X_ctrl, y_ctrl)
+	mu1_model = xgb_regressor(**cate_args).fit(X_treat, y_treat)
+	mu0_model = xgb_regressor(**cate_args).fit(X_ctrl, y_ctrl)
 	mu1 = mu1_model.predict(x_test)
 	mu0 = mu0_model.predict(x_test)
 	return mu1 - mu0
@@ -106,12 +115,12 @@ def xlearner_gb(x_train, y_train, t_train, x_test, propensity_estimator=None, ca
 	if cate_args is None:
 		cate_args = {'max_depth':3, 'colsample_bynode':1/3, 'n_estimators':25}
 	w = estimate_propensity_scores(x_train, t_train, x_test, propensity_estimator)
-	mu1_model = xgb.XGBRegressor(**cate_args).fit(x_train[t_train == 1], y_train[t_train == 1])
-	mu0_model = xgb.XGBRegressor(**cate_args).fit(x_train[t_train == 0], y_train[t_train == 0])
+	mu1_model = xgb_regressor(**cate_args).fit(x_train[t_train == 1], y_train[t_train == 1])
+	mu0_model = xgb_regressor(**cate_args).fit(x_train[t_train == 0], y_train[t_train == 0])
 	d1 = y_train[t_train == 1] - mu0_model.predict(x_train[t_train == 1])
 	d0 = mu1_model.predict(x_train[t_train == 0]) - y_train[t_train == 0]
-	tau1_model = xgb.XGBRegressor(**cate_args).fit(x_train[t_train == 1], d1)
-	tau0_model = xgb.XGBRegressor(**cate_args).fit(x_train[t_train == 0], d0)
+	tau1_model = xgb_regressor(**cate_args).fit(x_train[t_train == 1], d1)
+	tau0_model = xgb_regressor(**cate_args).fit(x_train[t_train == 0], d0)
 	tau1 = tau1_model.predict(x_test)
 	tau0 = tau0_model.predict(x_test)
 	return w * tau0 + (1 - w) * tau1
@@ -158,7 +167,7 @@ def estimate_propensity_scores(x_train, t_train, x_test, propensity_estimator=No
 		model = RandomForestClassifier().fit(x_train, t_train)
 		return model.predict_proba(x_test)[:,1]
 	if propensity_estimator in ['gb', 'xgb']:
-		model = xgb.XGBClassifier().fit(x_train, t_train)
+		model = xgb_classifier().fit(x_train, t_train)
 		return model.predict_proba(x_test)[:,1]
 	if callable(propensity_estimator):
 		return propensity_estimator(x_train, t_train, x_test)
@@ -179,9 +188,3 @@ cate_estimators = {
 	'xlearner_rf': xlearner_rf,
 	'xlearner_ridge': xlearner_ridge
 }
-
-
-
-
-
-	
