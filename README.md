@@ -33,7 +33,7 @@ print(f'Selected features (target FDR = {target_fdr}): {selected_features}')
 - `efp_scores`: Dictionary whose keys are feature indices and values are their efp scores (dict of length `p`).
 - `q_values`: Dictionary whose keys are feature indices and values are their q-values (dict of length `p`).
 - `runtime`: Runtime of the algorithm in seconds (float).
-- `selected_features`: Indices of features selected by CausalStabSel; empty list if `target_fp` and `target_fdr` are not specified (list of ints).
+- `selected_features`: Indices of selected features, if `target_fdr` or `target_fp` is given (list of ints).
 - `stability_paths`: Estimated selection probabilities at each parameter (array of shape `(k, p)`, with `k <= n_alphas`).
 
 ### Selecting features
@@ -43,7 +43,7 @@ Each feature (column of `X`) is assigned:
 
 To select features:
 - **Control FDR** by choosing all features with `q_value ≤ target_fdr`  
-  _Example: Selecting features with `q_value ≤ 0.1` controls the FDR at level 0.1 (approximately)_
+  _Example: Selecting features with `q_value ≤ 0.1` controls the FDR at level 0.1_
 - **Control E(FP)** by choosing all features with `efp_score ≤ target_fp`  
   _Example: Selecting features with `efp_score ≤ 2` controls the E(FP) at level 2_
 
@@ -52,7 +52,7 @@ To select features:
 - `selector`: Base algorithm for selecting effect modifiers (default `'gb'`). `'gb'` and `'rf'` capture nonlinear effect modification; `'l1'` and `'adaptive_lasso'` capture linear effect modification. See [IPSS](https://github.com/omelikechi/ipss).
 - `n_jobs`: Number of jobs to run in parallel (int; default `1`).
 
-The other arguments rarely need changing. See [ARGUMENTS.md](https://github.com/omelikechi/causalstabsel/blob/main/ARGUMENTS.md) for the full list.
+See [ARGUMENTS.md](https://github.com/omelikechi/causalstabsel/blob/main/ARGUMENTS.md) for the full list of arguments.
 
 ## Reference
 * Bargagli-Stoffi, F.J., Melikechi, O. 2026. Causal Stability Selection. arXiv preprint arXiv:2605.09300 </b> [<a href="https://arxiv.org/abs/2605.09300">preprint</a>]
